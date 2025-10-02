@@ -1,3 +1,4 @@
+import csv
 import requests
 import random
 import time
@@ -72,7 +73,24 @@ while next_page_url:
         print(f"Erro ao acessar a página {url_completa}: {e}")
         break
 
-# Encerrar script
+# Encerrar script e criar csv de saída
 print("-" * 30)
 print(f"Web Scraping finalizado!")
 print(f"Total de livros extraídos: {len(dados_livros)}")
+
+if dados_livros:
+    print("Salvando tabela em CSV...")            
+    
+    output_file = 'data/livros.csv'    
+    cabecalho = ['titulo', 'preco', 'avaliacao', 'disponibilidade', 'url_imagem']
+        
+    with open(output_file, mode='w', newline='', encoding='utf-8') as file:
+        # Criar um escritor
+        writer = csv.DictWriter(file, fieldnames=cabecalho)        
+        
+        writer.writeheader()        
+        writer.writerows(dados_livros)
+        
+    print(f"Dados salvos com sucesso em '{output_file}'")
+else:
+    print("Nenhum dado para salvar.")
