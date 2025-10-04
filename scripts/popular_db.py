@@ -1,13 +1,6 @@
 import csv
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from api.modelo import Livro, modelo_base
-
-DATABASE_URL = "sqlite:///./data/livraria.db"
-engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
-
-# Criar Sessão 
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+from api.database import SessionLocal
+from api.modelo import Livro
 
 def popular_banco_de_dados():
     """
@@ -21,6 +14,10 @@ def popular_banco_de_dados():
     try:    
         with open('data/livros.csv', mode='r', encoding='utf-8') as file:            
             reader = csv.DictReader(file)
+
+            db.query(Livro).delete()
+            db.commit()
+            print("Tabela 'livros' limpa.")
             
             livros_para_adicionar = []
             for row in reader:                

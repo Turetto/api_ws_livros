@@ -1,11 +1,5 @@
-from sqlalchemy import create_engine
-from api.modelo import modelo_base # Importar o modelo da tabela do arquivo modelo.py
-
-# Configuração do Banco de Dados
-DATABASE_URL = "sqlite:///./data/livraria.db"
-
-# Criar o motor do banco de dados
-engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+from api.database import engine, Base_tabela
+from api.modelo import Livro
 
 def criar_banco_de_dados():
     """
@@ -13,7 +7,7 @@ def criar_banco_de_dados():
     """
 
     print("Criando tabela no banco de dados...")    
-    modelo_base.metadata.create_all(bind=engine)
+    Base_tabela.metadata.create_all(bind=engine)
     print("Tabelas criadas com sucesso.")
 
 if __name__ == "__main__":    

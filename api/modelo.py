@@ -1,10 +1,9 @@
 from sqlalchemy import create_engine, Column, Integer, String, Float
 from sqlalchemy.ext.declarative import declarative_base
-
-modelo_base = declarative_base()
+from api.database import Base_tabela
 
 # Definição do modelo da tabela do SQL
-class Livro(modelo_base):
+class Livro(Base_tabela):
     """
     Esta classe representa a tabela 'livros' no banco de dados.
     Cada atributo da classe corresponde a uma coluna na tabela.
