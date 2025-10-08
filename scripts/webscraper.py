@@ -7,7 +7,6 @@ from urllib.parse import urljoin
 
 # Configurações do script
 BASE_URL = "https://books.toscrape.com/"
-# A URL inicial pode ser a página de catálogo
 next_page_url = "catalogue/page-1.html"
 
 USER_AGENTS = [
@@ -52,14 +51,29 @@ while next_page_url:
             disponibilidade = livro.find('p', class_='instock availability').text.strip()                        
             url_imagem = urljoin(BASE_URL, livro.find('img')['src']) # juntando com a URL base
 
+            # Adicionando a busca pela categoria do livro
+            url_categoria = urljoin(url_completa, livro.h3.a['href'])
+
+            response_categoria = requests.get(url_categoria, headers=headers, timeout=15)
+            response.encoding = 'utf-8'
+
+            try:
+                soup_categoria = BeautifulSoup(response_categoria.text, 'html.parser')
+                categoria = soup_categoria.find('ul', class_='breadcrumb').find_all('li')[2].a.text
+                
+            except (AttributeError, IndexError):
+                categoria = "N/A"
+
             # Adiciona os dados a lista
             dados_livros.append({
                 'titulo': titulo,
                 'preco': preco,
                 'avaliacao': avaliacao,
                 'disponibilidade': disponibilidade,
+                'categoria': categoria,
                 'url_imagem': url_imagem
             })
+            time.sleep(0.5)
 
         # procura pelo link da próxima página
         next_li = soup.find('li', class_='next')
@@ -82,7 +96,7 @@ if dados_livros:
     print("Salvando tabela em CSV...")            
     
     output_file = 'data/livros.csv'    
-    cabecalho = ['titulo', 'preco', 'avaliacao', 'disponibilidade', 'url_imagem']
+    cabecalho = ['titulo', 'preco', 'avaliacao', 'disponibilidade', 'categoria','url_imagem']
         
     with open(output_file, mode='w', newline='', encoding='utf-8') as file:
         # Criar um escritor

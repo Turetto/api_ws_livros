@@ -26,6 +26,7 @@ def popular_banco_de_dados():
                     preco=float(row['preco']),
                     avaliacao=row['avaliacao'],
                     disponibilidade=row['disponibilidade'],
+                    categoria=row['categoria'],
                     url_imagem=row['url_imagem']
                 )
                 livros_para_adicionar.append(livro_obj)

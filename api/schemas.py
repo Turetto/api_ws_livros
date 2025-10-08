@@ -9,6 +9,7 @@ class SchemaLivro(BaseModel):
     preco: float
     avaliacao: str
     disponibilidade: str
+    categoria: str
     url_imagem: str
        
     class Config:

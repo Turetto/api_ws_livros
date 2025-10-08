@@ -67,5 +67,19 @@ def get_livro_id(livro_id):
 
     return jsonify(resultado)
 
+# Rota para listar as categorias de livro
+@app.route("/api/v1/categories", methods=['GET'])
+def get_categorias():
+    """
+    Endpoint para listar categorias de livros disponíveis no banco de dados.
+    """
+
+    db = get_db()
+
+    categorias = db.query(Livro.categoria).distinct().all()
+
+    return jsonify(categorias)
+
+
 if __name__ == '__main__':
     app.run(debug=True, port=1312)

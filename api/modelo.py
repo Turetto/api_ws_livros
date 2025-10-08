@@ -16,6 +16,7 @@ class Livro(Base_tabela):
     preco = Column(Float, nullable=False)
     avaliacao = Column(String(50))
     disponibilidade = Column(String(100))
+    categoria = Column(String(50), index=True)
     url_imagem = Column(String(500))
 
     def __repr__(self):
