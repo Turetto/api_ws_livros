@@ -1,5 +1,5 @@
 from typing import List
-from flask import Flask, jsonify, g, abort
+from flask import Flask, jsonify, g, abort, request
 from .database import SessionLocal
 from .modelo import Livro
 from .schemas import SchemaLivro
@@ -80,6 +80,33 @@ def get_categorias():
     categorias = [categoria[0] for categoria in categorias]
 
     return jsonify(categorias)
+
+# Rota para fazer busca por filtros
+@app.route("/api/v1/books/search", methods=['GET'])
+def get_search():
+    """
+    Endpoint para buscar livros por título e/ou categoria.
+    """
+    
+    db = get_db()
+
+    titulo_filtro = request.args.get('titulo')
+    categoria_filtro = request.args.get('categoria')
+
+    query = db.query(Livro)
+
+    if titulo_filtro:
+        query = query.filter(Livro.titulo.ilike(f'%{titulo_filtro}%'))
+
+    if categoria_filtro:
+        query = query.filter(Livro.categoria.ilike(categoria_filtro))
+    
+    livros_filtro = query.all()
+
+    livros_serializado = [SchemaLivro.model_validate(livro) for livro in livros_filtro]
+    resultado = [livro.model_dump() for livro in livros_serializado]
+
+    return jsonify(resultado)
 
 
 if __name__ == '__main__':
