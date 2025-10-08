@@ -77,6 +77,7 @@ def get_categorias():
     db = get_db()
 
     categorias = db.query(Livro.categoria).distinct().all()
+    categorias = [categoria[0] for categoria in categorias]
 
     return jsonify(categorias)
 
