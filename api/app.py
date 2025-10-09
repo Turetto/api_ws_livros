@@ -1,12 +1,19 @@
+import subprocess
+import sys
 from typing import List
 from flask import Flask, jsonify, g, abort, request
+from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
 from sqlalchemy import func
 from .database import SessionLocal
-from .modelo import Livro
+from .modelo import Livro, Usuario
 from .schemas import SchemaLivro
 
 # Criar a instância principal
 app = Flask(__name__)
+
+# Configurações do JWT
+app.config["JWT_SECRET_KEY"] = "fiap_mle"
+jwt = JWTManager(app)
 
 # Gerenciamento das sessões do banco de dados
 def get_db():
@@ -200,6 +207,64 @@ def get_price_range():
     resultado = [livro.model_dump() for livro in livros_serializado]
         
     return jsonify(resultado)
+
+# Rota para autenticar login
+@app.route("/api/v1/auth/login", methods=['POST'])
+def login():
+    """
+    Endpoint para autenticar um usuário e retornar um token de acesso.
+    """
+
+    data = request.get_json()
+    username = data.get('username')
+    password = data.get('password')
+    
+    if not username or not password:
+        return jsonify({"msg": "Nome de usuário e senha são obrigatórios"}), 400
+    
+    db = get_db()
+
+    user = db.query(Usuario).filter_by(username=username).first()
+
+    # criação do token JWT
+    if user and user.password == password:
+        access_token = create_access_token(identity=str(user.username))
+        return jsonify(access_token=access_token)
+    
+# Teste do login
+@app.route("/api/v1/admin/test", methods=['GET'])
+@jwt_required()
+def admin_test():
+    """
+    rota de teste para usuário.    
+    """
+
+    user_id = get_jwt_identity()
+    return jsonify(logged_in_as=user_id), 200
+
+# Endpoint para inicializar o web scraping
+@app.route("/api/v1/admin/scraping/trigger", methods=['POST'])
+@jwt_required()
+def scraping_trigger():
+    current_user_id = get_jwt_identity()
+
+    if current_user_id != 'bruno':
+        return jsonify({"msg": "Acesso negado. Apenas administradores."}), 403
+    
+    try:
+        print("Iniciando o processo de scraping em segundo plano...")
+        python_executable = sys.executable
+        script_path = "scripts/webscraper.py"
+
+        # Iniciar o processo sem bloquear a API
+        subprocess.Popen([python_executable, "-m", "scripts.webscraper"])
+
+        return jsonify({"msg": "Processo de scraping iniciado com sucesso."}), 202
+        
+    except Exception as e:
+        print(f"Erro ao disparar o scraping: {e}")
+        return jsonify({"msg": "Erro interno ao tentar iniciar o scraping."}), 500
+
 
 if __name__ == '__main__':
     app.run(debug=True, port=1312)

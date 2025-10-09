@@ -25,3 +25,13 @@ class Livro(Base_tabela):
     def __str__(self):
         return f"Título: {self.titulo}, Preço: £{self.preco:.2f}"
 
+
+class Usuario(Base_tabela):
+    __tablename__ = 'usuarios'
+    
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String(20), unique=True, nullable=False)
+    password = Column(String(100), nullable=False)
+
+    def __repr__(self):
+        return f"<Usuario(username='{self.username}')>"
