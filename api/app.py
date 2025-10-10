@@ -254,12 +254,12 @@ def scraping_trigger():
     try:
         print("Iniciando o processo de scraping em segundo plano...")
         python_executable = sys.executable
-        script_path = "scripts/webscraper.py"
+        script_path = "scripts/update_pipe.py"
 
         # Iniciar o processo sem bloquear a API
-        subprocess.Popen([python_executable, "-m", "scripts.webscraper"])
+        subprocess.Popen([python_executable, "-m", "scripts.update_pipe"])
 
-        return jsonify({"msg": "Processo de scraping iniciado com sucesso."}), 202
+        return jsonify({"msg": "Pipeline ativado com sucesso."}), 202
         
     except Exception as e:
         print(f"Erro ao disparar o scraping: {e}")

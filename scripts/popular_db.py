@@ -2,7 +2,7 @@ import csv
 from api.database import SessionLocal
 from api.modelo import Livro
 
-def popular_banco_de_dados():
+def main():
     """
     Lê os dados do arquivo livros.csv e os insere na tabela 'livros'
     no banco de dados 'livraria'
@@ -45,4 +45,4 @@ def popular_banco_de_dados():
         print("Sessão fechada.")
 
 if __name__ == "__main__":
-    popular_banco_de_dados()
+    main()
