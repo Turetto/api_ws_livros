@@ -1,12 +1,15 @@
-import subprocess
+import os
 import sys
+import subprocess
+import joblib
+import numpy as np
 from typing import List
 from flask import Flask, jsonify, g, abort, request
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
 from sqlalchemy import func
 from .database import SessionLocal
 from .modelo import Livro, Usuario
-from .schemas import SchemaLivro
+from .schemas import SchemaLivro, ModeloInput
 
 # Criar a instância principal
 app = Flask(__name__)
@@ -14,6 +17,35 @@ app = Flask(__name__)
 # Configurações do JWT
 app.config["JWT_SECRET_KEY"] = "fiap_mle"
 jwt = JWTManager(app)
+
+# Carregando o modelo de classificação e o scaler
+
+try:
+    model_path = os.path.join('models', 'kmeans_model.joblib')
+    scaler_path = os.path.join('models', 'scaler.joblib')
+    kmeans_model = joblib.load(model_path)
+    scaler = joblib.load(scaler_path)
+    print("Modelos de ML carregados com sucesso.")
+
+except FileNotFoundError:
+    kmeans_model = None
+    scaler = None
+    print("AVISO: Arquivos de modelo não encontrados. O endpoint de predição não funcionará.")
+
+# Mapeamento dos nomes dos clusters
+cluster_names = {
+    0: "Econômico",
+    1: "Custo-Benefício",
+    2: "Premium",
+    3: "Colecionador"
+}
+
+# Mapeamento para feature engineering
+rating_map = {"One": 1, 
+              "Two": 2, 
+              "Three": 3, 
+              "Four": 4, 
+              "Five": 5}
 
 # Gerenciamento das sessões do banco de dados
 def get_db():
@@ -264,6 +296,82 @@ def scraping_trigger():
     except Exception as e:
         print(f"Erro ao disparar o scraping: {e}")
         return jsonify({"msg": "Erro interno ao tentar iniciar o scraping."}), 500
+
+
+# Rotas para modelagem
+# Rota para acessar dados de treinamento
+@app.route("/api/v1/ml/training-data", methods=['GET'])
+@jwt_required()
+def training_data():
+    """Endpoint para servir o dataset completo para treinamento."""
+
+    db = get_db()
+
+    todos_livros = db.query(Livro).all()
+    livros_schema = [SchemaLivro.model_validate(livro) for livro in todos_livros]
+    resultado_json = [livro.model_dump() for livro in livros_schema]
+    return jsonify(resultado_json)
+
+# Rotas para acessar features do modelo
+@app.route("/api/v1/ml/features", methods=['GET'])
+def get_features():
+    """Endpoint que retorna as features do modelo."""
+    
+    db = get_db()
+
+    todos_livros = db.query(Livro).all()
+
+    lista_features = []
+    for livro in todos_livros:
+        avaliacao_numerica = rating_map.get(livro.avaliacao, 0)
+        features = {
+            "livro_id": livro.id,
+            "preco": livro.preco,
+            "avaliacao_numerica": avaliacao_numerica
+        }
+        lista_features.append(features)
+
+
+    return jsonify(lista_features)
+
+# Rotas para acessar features do modelo de um id
+@app.route("/api/v1/ml/features/<int:livro_id>", methods=['GET'])
+def get_book_features(livro_id):
+    """Endpoint que retorna os dados de um livro formatados como features."""
+    db = get_db()
+    livro_orm = db.query(Livro).get(livro_id)
+    if not livro_orm:
+        abort(404, description=f"Livro com id {livro_id} não encontrado.")
+    
+    avaliacao_numerica = rating_map.get(livro_orm.avaliacao, 0)
+    features = {
+        "livro_id": livro_orm.id,
+        "preco": livro_orm.preco,
+        "avaliacao_numerica": avaliacao_numerica
+    }
+    return jsonify(features)
+
+# Rota para projeção com kmeans
+@app.route("/api/v1/ml/predictions", methods=['POST'])
+def predict_cluster():
+    """Endpoint para prever o cluster de um livro com base no preço e avaliação."""
+    if not kmeans_model or not scaler:
+        abort(503, description="Modelos de ML não estão disponíveis ou carregados.")
+
+    input_data = ModeloInput.model_validate(request.get_json())
+    avaliacao_numerica = rating_map.get(input_data.avaliacao, 0)
+    features = np.array([[input_data.preco, avaliacao_numerica]])
+    features_scaled = scaler.transform(features)
+    proj_cluster = kmeans_model.predict(features_scaled)[0]
+    cluster_name = cluster_names.get(int(proj_cluster), "Desconhecido")
+
+    return jsonify({
+        "input_data": input_data.model_dump(),
+        "predicted_cluster_index": int(proj_cluster),
+        "predicted_cluster_name": cluster_name
+    })
+   
+
 
 
 if __name__ == '__main__':

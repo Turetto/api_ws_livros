@@ -14,3 +14,11 @@ class SchemaLivro(BaseModel):
        
     class Config:
         from_attributes = True
+
+class ModeloInput(BaseModel):
+    """
+    Define a estrutura da entrada de dados para predição no modelo estatístico.
+    """
+
+    preco:float
+    avaliacao: str
