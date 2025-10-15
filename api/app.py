@@ -5,6 +5,7 @@ import joblib
 import numpy as np
 from typing import List
 from flask import Flask, jsonify, g, abort, request
+from flasgger import Swagger
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
 from sqlalchemy import func
 from .database import SessionLocal
@@ -14,12 +15,35 @@ from .schemas import SchemaLivro, ModeloInput
 # Criar a instância principal
 app = Flask(__name__)
 
+# Configurar Swagger
+template = {
+    "swagger": "2.0",
+    "info": {
+        "title": "API de Livros",
+        "description": "Uma API para consulta de livros e estatísticas.",
+        "version": "2.5.0"
+    },
+    "securityDefinitions": {
+        "BearerAuth": {
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header",
+            "description": "Token de acesso JWT. Exemplo: \"Bearer {token}\""
+        }
+    },
+    "security": [
+        {
+            "BearerAuth": []
+        }
+    ]
+}
+swagger = Swagger(app, template=template)
+
 # Configurações do JWT
 app.config["JWT_SECRET_KEY"] = "fiap_mle"
 jwt = JWTManager(app)
 
 # Carregando o modelo de classificação e o scaler
-
 try:
     model_path = os.path.join('models', 'kmeans_model.joblib')
     scaler_path = os.path.join('models', 'scaler.joblib')
@@ -69,16 +93,44 @@ def close_db(exception=None):
 @app.route("/api/v1/health", methods=['GET'])
 def health_check():
     """
-    Endpoint para verificar conexão da API.
-    Retorna um status 'ok' se a API estiver rodando.
+    Verifica a saúde da API.
+    ---
+    tags:
+      - Health Check
+    summary: Retorna um status de 'ok' se a API estiver operacional.
+    responses:
+      200:
+        description: A API está funcionando corretamente.
+        schema:
+          type: object
+          properties:
+            status:
+              type: string
+              example: "ok"
+            message:
+              type: string
+              example: "API is healthy"
     """
+
     return jsonify({"Status": "OK", "message": "API está ativa."})
 
 # Rota para listar livros no banco de dados livraria
 @app.route("/api/v1/books", methods=['GET'])
 def get_livros():
     """
-    Endpoint para acessar lista de livros no banco de dados.
+    Lista todos os livros da coleção.
+    ---
+    tags:
+      - Livros
+    summary: Retorna uma lista com todos os livros.
+    description: Retorna uma lista de objetos, cada um representando um livro na base de dados.
+    responses:
+      200:
+        description: Uma lista de livros.
+        schema:
+          type: array
+          items:
+            $ref: '#/definitions/Book'
     """
     
     db = get_db()
@@ -93,7 +145,24 @@ def get_livros():
 @app.route("/api/v1/books/<int:livro_id>", methods=['GET'])
 def get_livro_id(livro_id):
     """
-    Endpoint para buscar um livro específico pelo seu ID.
+    Busca um livro específico pelo seu ID.
+    ---
+    tags:
+      - Livros
+    summary: Retorna os detalhes de um livro específico.
+    parameters:
+      - in: path
+        name: livro_id
+        required: true
+        type: integer
+        description: O ID único do livro.
+    responses:
+      200:
+        description: Detalhes do livro retornados com sucesso.
+        schema:
+          $ref: '#/definitions/Book'
+      404:
+        description: Livro não encontrado.
     """
 
     db = get_db()
@@ -111,9 +180,24 @@ def get_livro_id(livro_id):
 @app.route("/api/v1/categories", methods=['GET'])
 def get_categorias():
     """
-    Endpoint para listar categorias de livros disponíveis no banco de dados.
+    Lista todas as categorias de livros únicas.
+    ---
+    tags:
+      - Livros
+    summary: Retorna uma lista de todas as categorias de livros disponíveis.
+    description: Endpoint que consulta o banco de dados e retorna um array com todas as categorias únicas, ordenadas alfabeticamente.
+    responses:
+      200:
+        description: Lista de categorias retornada com sucesso.
+        schema:
+          type: object
+          properties:
+            categorias:
+              type: array
+              items:
+                type: string
+              example: ["Science Fiction", "History", "Travel"]
     """
-
     db = get_db()
 
     categorias = db.query(Livro.categoria).distinct().all()
@@ -125,7 +209,29 @@ def get_categorias():
 @app.route("/api/v1/books/search", methods=['GET'])
 def get_search():
     """
-    Endpoint para buscar livros por título e/ou categoria.
+    Busca livros por título e/ou categoria.
+    ---
+    tags:
+      - Livros
+    summary: Filtra a lista de livros por título e/ou categoria.
+    parameters:
+      - in: query
+        name: title
+        type: string
+        required: false
+        description: Termo a ser buscado no título do livro (busca parcial, case-insensitive).
+      - in: query
+        name: category
+        type: string
+        required: false
+        description: Categoria exata do livro (case-insensitive).
+    responses:
+      200:
+        description: Uma lista de livros que correspondem aos filtros.
+        schema:
+          type: array
+          items:
+            $ref: '#/definitions/Book'
     """
     
     db = get_db()
@@ -152,8 +258,36 @@ def get_search():
 @app.route("/api/v1/stats/overview", methods=["GET"])
 def get_stats_overview():
     """
-    Endpoint para obter estatísticas gerais da coleção de livros.
+    Obtém estatísticas gerais da coleção de livros.
+    ---
+    tags:
+      - Insights
+    summary: Retorna estatísticas agregadas sobre a coleção.
+    responses:
+      200:
+        description: Um objeto com as estatísticas gerais.
+        schema:
+          type: object
+          properties:
+            total_livros:
+              type: integer
+              example: 1000
+            preco_medio:
+              type: number
+              format: float
+              example: 35.07
+            distribuicao_ratings:
+              type: object
+              additionalProperties:
+                type: integer
+              example:
+                "One": 226,
+                "Two": 196,
+                "Three": 203,
+                "Four": 175,
+                "Five": 200
     """
+
     db = get_db()
 
     total_livros = db.query(Livro).count()
@@ -173,7 +307,29 @@ def get_stats_overview():
 @app.route("/api/v1/stats/categories", methods=['GET'])
 def get_stats_categories():
     """
-    Endpoint para obter estatísticas detalhadas por categoria.
+    Obtém estatísticas detalhadas por categoria.
+    ---
+    tags:
+      - Insights
+    summary: Retorna a contagem de livros e o preço médio para cada categoria.
+    responses:
+      200:
+        description: Lista de estatísticas por categoria.
+        schema:
+          type: array
+          items:
+            type: object
+            properties:
+              categoria:
+                type: string
+                example: "Travel"
+              total_livros:
+                type: integer
+                example: 11
+              preco_medio:
+                type: number
+                format: float
+                example: 33.74
     """
 
     db = get_db()
@@ -198,7 +354,18 @@ def get_stats_categories():
 @app.route("/api/v1/books/top-rated", methods=['GET'])
 def get_top_rated():
     """
-    Endpoint para listar os livros com a melhor avaliação.
+    Lista os livros com a melhor avaliação (Five stars).
+    ---
+    tags:
+      - Livros
+    summary: Retorna uma lista dos livros com avaliação "Five".
+    responses:
+      200:
+        description: Uma lista de livros com a avaliação máxima.
+        schema:
+          type: array
+          items:
+            $ref: '#/definitions/Book'
     """
     db = get_db()
         
@@ -215,8 +382,33 @@ def get_top_rated():
 @app.route("/api/v1/books/price-range", methods=['GET'])
 def get_price_range():
     """
-    Endpoint para listar livros dentro de uma faixa de preço.
+    Lista livros dentro de uma faixa de preço específica.
+    ---
+    tags:
+      - Livros
+    summary: Filtra livros por um preço mínimo e máximo.
+    parameters:
+      - in: query
+        name: min
+        type: number
+        required: true
+        description: O preço mínimo do livro.
+      - in: query
+        name: max
+        type: number
+        required: true
+        description: O preço máximo do livro.
+    responses:
+      200:
+        description: Uma lista de livros dentro da faixa de preço.
+        schema:
+          type: array
+          items:
+            $ref: '#/definitions/Book'
+      400:
+        description: Erro se os parâmetros 'min' ou 'max' estiverem ausentes ou não forem números.
     """
+
     db = get_db()
        
     min = request.args.get('min')
@@ -244,7 +436,32 @@ def get_price_range():
 @app.route("/api/v1/auth/login", methods=['POST'])
 def login():
     """
-    Endpoint para autenticar um usuário e retornar um token de acesso.
+    Autentica um usuário e retorna um token de acesso JWT.
+    ---
+    tags:
+      - Autenticação
+    summary: Efetua o login de um usuário.
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required:
+            - username
+            - password
+          properties:
+            username:
+              type: string
+              example: "admin"
+            password:
+              type: string
+              example: "senha123"
+    responses:
+      200:
+        description: Login bem-sucedido.
+      401:
+        description: Credenciais inválidas.
     """
 
     data = request.get_json()
@@ -268,7 +485,18 @@ def login():
 @jwt_required()
 def admin_test():
     """
-    rota de teste para usuário.    
+    Rota de teste para verificar a autenticação de um usuário.
+    ---
+    tags:
+      - Admin
+    summary: Rota protegida para testar a validade de um token JWT.
+    security:
+      - BearerAuth: []
+    responses:
+      200:
+        description: Token válido, retorna a identidade do usuário.
+      401:
+        description: Token de autenticação ausente ou inválido.
     """
 
     user_id = get_jwt_identity()
@@ -278,6 +506,22 @@ def admin_test():
 @app.route("/api/v1/admin/scraping/trigger", methods=['POST'])
 @jwt_required()
 def scraping_trigger():
+    """
+    Dispara o processo de web scraping e atualização do banco.
+    ---
+    tags:
+      - Admin
+    summary: Inicia o pipeline de atualização de dados (requer autenticação de admin).
+    security:
+      - BearerAuth: []
+    responses:
+      202:
+        description: Processo iniciado com sucesso.
+      401:
+        description: Token de autenticação ausente ou inválido.
+      403:
+        description: Acesso negado (não é um administrador).
+    """
     current_user_id = get_jwt_identity()
 
     if current_user_id != 'bruno':
@@ -303,7 +547,20 @@ def scraping_trigger():
 @app.route("/api/v1/ml/training-data", methods=['GET'])
 @jwt_required()
 def training_data():
-    """Endpoint para servir o dataset completo para treinamento."""
+    """
+    Serve o dataset completo para treinamento de modelos de ML.
+    ---
+    tags:
+      - Machine Learning
+    summary: Retorna a lista completa de livros no formato padrão da API.
+    responses:
+      200:
+        description: Dataset completo retornado com sucesso.
+        schema:
+          type: array
+          items:
+            $ref: '#/definitions/Book'
+    """
 
     db = get_db()
 
@@ -315,7 +572,28 @@ def training_data():
 # Rotas para acessar features do modelo
 @app.route("/api/v1/ml/features", methods=['GET'])
 def get_features():
-    """Endpoint que retorna as features do modelo."""
+    """
+    Retorna as features pré-processadas de TODOS os livros.
+    ---
+    tags:
+      - Machine Learning
+    summary: Serve uma lista com as features processadas de todos os livros.
+    responses:
+      200:
+        description: Lista de features retornada com sucesso.
+        schema:
+          type: array
+          items:
+            type: object
+            properties:
+              livro_id:
+                type: integer
+              preco:
+                type: number
+                format: float
+              avaliacao_numerica:
+                type: integer
+    """
     
     db = get_db()
 
@@ -337,7 +615,25 @@ def get_features():
 # Rotas para acessar features do modelo de um id
 @app.route("/api/v1/ml/features/<int:livro_id>", methods=['GET'])
 def get_book_features(livro_id):
-    """Endpoint que retorna os dados de um livro formatados como features."""
+    """
+    Retorna as features pré-processadas de um único livro.
+    ---
+    tags:
+      - Machine Learning
+    summary: Serve as features processadas de um livro específico pelo seu ID.
+    parameters:
+      - in: path
+        name: livro_id
+        required: true
+        type: integer
+        description: O ID do livro para extrair as features.
+    responses:
+      200:
+        description: Features do livro retornadas com sucesso.
+      404:
+        description: Livro não encontrado.
+    """
+
     db = get_db()
     livro_orm = db.query(Livro).get(livro_id)
     if not livro_orm:
@@ -354,7 +650,25 @@ def get_book_features(livro_id):
 # Rota para projeção com kmeans
 @app.route("/api/v1/ml/predictions", methods=['POST'])
 def predict_cluster():
-    """Endpoint para prever o cluster de um livro com base no preço e avaliação."""
+    """
+    Prevê o cluster de um livro com base no preço e avaliação.
+    ---
+    tags:
+      - Machine Learning
+    summary: Usa o modelo K-Means treinado para classificar um livro em um cluster.
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/ModeloInput'
+    responses:
+      200:
+        description: A predição do cluster do livro.
+      503:
+        description: Serviço indisponível se os modelos de ML não estiverem carregados.
+    """
+
     if not kmeans_model or not scaler:
         abort(503, description="Modelos de ML não estão disponíveis ou carregados.")
 
