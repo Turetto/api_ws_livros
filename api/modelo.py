@@ -31,7 +31,7 @@ class Usuario(Base_tabela):
     
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String(20), unique=True, nullable=False)
-    password = Column(String(100), nullable=False)
+    password = Column(String(255), nullable=False)
 
     def __repr__(self):
         return f"<Usuario(username='{self.username}')>"
