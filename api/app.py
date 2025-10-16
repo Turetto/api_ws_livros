@@ -685,8 +685,5 @@ def predict_cluster():
         "predicted_cluster_name": cluster_name
     })
    
-
-
-
-if __name__ == '__main__':
-    app.run(debug=True, port=1312)
+# if __name__ == '__main__':
+#     app.run(debug=True, port=1312)
