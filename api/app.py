@@ -11,6 +11,7 @@ from sqlalchemy import func
 from .database import SessionLocal
 from .modelo import Livro, Usuario
 from .schemas import SchemaLivro, ModeloInput
+from werkzeug.security import check_password_hash
 
 # Criar a instância principal
 app = Flask(__name__)
@@ -467,18 +468,20 @@ def login():
     data = request.get_json()
     username = data.get('username')
     password = data.get('password')
-    
+
     if not username or not password:
         return jsonify({"msg": "Nome de usuário e senha são obrigatórios"}), 400
-    
+
     db = get_db()
-
     user = db.query(Usuario).filter_by(username=username).first()
-
-    # criação do token JWT
-    if user and user.password == password:
-        access_token = create_access_token(identity=str(user.username))
+    
+    # Compara a senha enviada pelo usuário com o HASH salvo no banco.
+    if user and check_password_hash(user.password, password):
+        # Se a verificação for bem-sucedida, cria e retorna o token.
+        access_token = create_access_token(identity=str(user.id))
         return jsonify(access_token=access_token)
+
+    return jsonify({"msg": "Nome de usuário ou senha incorretos"}), 401
     
 # Teste do login
 @app.route("/api/v1/admin/test", methods=['GET'])
