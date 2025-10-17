@@ -20,10 +20,9 @@ from werkzeug.security import check_password_hash
 app = Flask(__name__)
 
 # Evitando que os logs do Flask sobreponham o jsonlogger
-if app.logger.handlers:
-    app.logger.handlers = []
-  
-# Criar um handler de log 
+logger = logging.getLogger("api-livros")
+logger.setLevel(logging.INFO)
+
 logHandler = logging.StreamHandler()
 
 formatter = jsonlogger.JsonFormatter(
@@ -33,6 +32,11 @@ logHandler.setFormatter(formatter)
 
 app.logger.addHandler(logHandler)
 app.logger.setLevel(logging.INFO)
+
+if __name__ != '__main__':
+    gunicorn_logger = logging.getLogger('gunicorn.error')
+    app.logger.handlers = gunicorn_logger.handlers
+    app.logger.setLevel(gunicorn_logger.level)
 
 @app.before_request
 def add_request_id():
