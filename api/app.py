@@ -529,7 +529,7 @@ def login():
     # Compara a senha enviada pelo usuário com o HASH salvo no banco.
     if user and check_password_hash(user.password, password):
         # Se a verificação for bem-sucedida, cria e retorna o token.
-        access_token = create_access_token(identity=str(user.id))
+        access_token = create_access_token(identity=user.username)
         app.logger.info(f"Login bem-sucedido para o usuário ID {user.id}.", extra=extra_info)
         return jsonify(access_token=access_token)
     
