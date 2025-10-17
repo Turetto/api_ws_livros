@@ -3,6 +3,9 @@ import sys
 import subprocess
 import joblib
 import numpy as np
+import logging
+import uuid
+from pythonjsonlogger import jsonlogger
 from typing import List
 from flask import Flask, jsonify, g, abort, request
 from flasgger import Swagger
@@ -15,6 +18,25 @@ from werkzeug.security import check_password_hash
 
 # Criar a instância principal
 app = Flask(__name__)
+
+# Evitando que os logs do Flask sobreponham o jsonlogger
+if app.logger.handlers:
+    app.logger.handlers = []
+  
+# Criar um handler de log 
+logHandler = logging.StreamHandler()
+
+formatter = jsonlogger.JsonFormatter(
+    '%(asctime)s %(name)s %(levelname)s %(message)s %(pathname)s %(lineno)d %(request_id)s'
+)
+logHandler.setFormatter(formatter)
+
+app.logger.addHandler(logHandler)
+app.logger.setLevel(logging.INFO)
+
+@app.before_request
+def add_request_id():
+    g.request_id = str(uuid.uuid4()) # criar um ID unico a cada requisição de log
 
 # Configurar Swagger
 template = {
@@ -112,6 +134,8 @@ def health_check():
               type: string
               example: "API is healthy"
     """
+    extra_info = {"request_id": g.get("request_id")}
+    app.logger.info("Endpoint Health Check foi acessado.", extra=extra_info)
 
     return jsonify({"Status": "OK", "message": "API está ativa."})
 
@@ -133,7 +157,12 @@ def get_livros():
           items:
             $ref: '#/definitions/Book'
     """
-    
+    extra_info = {
+        "request_id": g.get("request_id")
+    }
+
+    app.logger.info("Endpoint com lista de livros foi acessado.", extra=extra_info)
+
     db = get_db()
     todos_livros = db.query(Livro).all()
 
@@ -165,15 +194,23 @@ def get_livro_id(livro_id):
       404:
         description: Livro não encontrado.
     """
+    extra_info = {
+        "request_id": g.get("request_id"),
+        "livro_id_solicitado": livro_id 
+    }
+    app.logger.info("Busca por livro específico.", extra=extra_info)
 
     db = get_db()
     livro = db.query(Livro).get(livro_id)
 
     if not livro:
         abort(404, description=f"Livro com id {livro_id} não encontrado.")
+        app.logger.info("Livro não encontrado.", extra=extra_info)
 
     livro_serializado = SchemaLivro.model_validate(livro)
     resultado = livro_serializado.model_dump()
+
+    app.logger.info("Livro encontrado com sucesso.", extra=extra_info)
 
     return jsonify(resultado)
 
@@ -200,6 +237,12 @@ def get_categorias():
               example: ["Science Fiction", "History", "Travel"]
     """
     db = get_db()
+
+    extra_info = {
+        "request_id": g.get("request_id")
+    }
+
+    app.logger.info("Endpoint com categorias de livros foi acessado.", extra=extra_info)
 
     categorias = db.query(Livro.categoria).distinct().all()
     categorias = [categoria[0] for categoria in categorias]
@@ -464,14 +507,22 @@ def login():
       401:
         description: Credenciais inválidas.
     """
-
+    
     data = request.get_json()
     username = data.get('username')
     password = data.get('password')
 
-    if not username or not password:
-        return jsonify({"msg": "Nome de usuário e senha são obrigatórios"}), 400
+    extra_info = {
+        "request_id": g.get("request_id"),
+        "username": username 
+    }
 
+    app.logger.info("Tentativa de login recebida.", extra=extra_info)
+
+    if not username or not password:
+        app.logger.warning("Tentativa de login falhou.", extra=extra_info)
+        return jsonify({"msg": "Nome de usuário e senha são obrigatórios"}), 400
+        
     db = get_db()
     user = db.query(Usuario).filter_by(username=username).first()
     
@@ -479,8 +530,10 @@ def login():
     if user and check_password_hash(user.password, password):
         # Se a verificação for bem-sucedida, cria e retorna o token.
         access_token = create_access_token(identity=str(user.id))
+        app.logger.info(f"Login bem-sucedido para o usuário ID {user.id}.", extra=extra_info)
         return jsonify(access_token=access_token)
-
+    
+    app.logger.warning("Falha na autenticação.", extra=extra_info)
     return jsonify({"msg": "Nome de usuário ou senha incorretos"}), 401
     
 # Teste do login
@@ -526,10 +579,19 @@ def scraping_trigger():
         description: Acesso negado (não é um administrador).
     """
     current_user_id = get_jwt_identity()
-
+    
+    extra_info = {
+        "request_id": g.get("request_id"),
+        "admin_id": current_user_id
+    }
+    
     if current_user_id != 'bruno':
+        app.logger.warning("Tentativa de acesso de não administrador.", extra=extra_info)
+
         return jsonify({"msg": "Acesso negado. Apenas administradores."}), 403
     
+    app.logger.warning("Pipeline de scraping disparado.", extra=extra_info)
+
     try:
         print("Iniciando o processo de scraping em segundo plano...")
         python_executable = sys.executable
@@ -542,6 +604,8 @@ def scraping_trigger():
         
     except Exception as e:
         print(f"Erro ao disparar o scraping: {e}")
+        app.logger.warning("Pipeline de scraping falhou.", extra=extra_info)
+
         return jsonify({"msg": "Erro interno ao tentar iniciar o scraping."}), 500
 
 
@@ -670,7 +734,13 @@ def predict_cluster():
         description: A predição do cluster do livro.
       503:
         description: Serviço indisponível se os modelos de ML não estiverem carregados.
-    """
+    """  
+
+    extra_info = {
+        "request_id": g.get("request_id")
+    }
+
+    app.logger.info("Tentativa de login recebida.", extra=extra_info)
 
     if not kmeans_model or not scaler:
         abort(503, description="Modelos de ML não estão disponíveis ou carregados.")
