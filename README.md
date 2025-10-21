@@ -51,7 +51,7 @@ A API oferece os seguintes endpoints principais (prefixo `/api/v1`):
 * **Health Check:**
     * `GET /health`: Verifica se a API está operacional.
 
-*Para detalhes completos sobre parâmetros e respostas, consulte a [Documentação Interativa (Swagger)](#documentacao-interativa-swagger).*
+*Para detalhes completos sobre parâmetros e respostas, consulte a [Documentação Interativa (Swagger)](https://turetto-api-livros-3a30130b990d.herokuapp.com/apidocs/).*
 
 ## Como Executar o Projeto Localmente
 
