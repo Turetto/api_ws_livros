@@ -24,8 +24,6 @@ Este repositório contém o código-fonte de uma API RESTful para consulta de in
 * **Documentação:** Gerada automaticamente com `Flasgger` (Swagger UI).
 * **Deploy:** Hospedado na plataforma Heroku.
 
-**(Opcional: Adicione um diagrama de arquitetura simples aqui, se desejar)**
-
 ## Funcionalidades da API
 
 A API oferece os seguintes endpoints principais (prefixo `/api/v1`):
