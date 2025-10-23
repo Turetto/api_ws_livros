@@ -47,16 +47,43 @@ st.header("Visão Geral da Coleção")
 stats = get_stats_overview()
 
 if stats:
+    # --- DEBUGGING ---
+    # Imprime o dicionário completo recebido
+    #st.subheader("Dados Brutos Recebidos da API:")
+    #st.write(stats) 
+    # ---------------
+
     col1, col2, col3 = st.columns(3)
     col1.metric("Total de Livros", stats.get("total_livros", 0))
     col2.metric("Preço Médio", f"£ {stats.get('preco_medio', 0):.2f}")
-    
-    # Exibe a distribuição de ratings
-    ratings = stats.get("distribuicao_ratings", {})
+
+    ratings = stats.get("distribuicao_avaliacoes", {})
+
+    # --- DEBUGGING ---
+    # Imprime o dicionário específico de ratings
+    #st.subheader("Dicionário de Ratings:")
+    #st.write(ratings) 
+    # ---------------
+
     if ratings:
-        df_ratings = pd.DataFrame(list(ratings.items()), columns=['Avaliação', 'Quantidade'])
-        st.subheader("Distribuição de Avaliações")
-        st.bar_chart(df_ratings.set_index('Avaliação'))
+        try:
+            df_ratings = pd.DataFrame(list(ratings.items()), columns=['Avaliação', 'Quantidade'])
+
+            # --- DEBUGGING ---
+            # Imprime o DataFrame antes de plotar
+            #st.subheader("DataFrame Criado:")
+            #st.write(df_ratings) 
+            # ---------------
+
+            st.subheader("Distribuição de Avaliações")
+            st.bar_chart(df_ratings.set_index('Avaliação'))
+        except Exception as e:
+            st.error(f"Erro ao criar o DataFrame ou o gráfico: {e}")
+            st.write("Verifique se o formato dos dados de 'distribuicao_ratings' está correto.")
+    else:
+        st.warning("Não foram encontrados dados de distribuição de ratings na resposta da API.")
+else:
+    st.error("Não foi possível carregar as estatísticas da API.")
 
 st.divider()
 
