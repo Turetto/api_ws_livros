@@ -259,6 +259,10 @@ O projeto inclui um dashboard interativo simples, construído com a biblioteca S
 
 3. **Testes Automatizados:** Escrever testes (unitários, integração) usando pytest para garantir a robustez da API.
 
+## Vídeo de Apresentação
+
+https://youtu.be/PX9OfeC2G5w
+
 
 
 
